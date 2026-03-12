@@ -7,7 +7,6 @@ from pydantic_settings import BaseSettings
 from pydantic import Field, AliasChoices
 from loguru import logger
 from decimal import Decimal, InvalidOperation
-from typing import Optional
 import os
 import json
 
