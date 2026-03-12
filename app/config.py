@@ -20,8 +20,9 @@ class Settings(BaseSettings):
     openai_base_url: str = Field(default="https://api.openai.com/v1", env="OPENAI_BASE_URL")
     llm_model: str = Field(default="gpt-4-turbo", env="LLM_MODEL")
     embedding_model: str = Field(default="text-embedding-3-small", env="EMBEDDING_MODEL")
-    llm_input_price_per_1m: float = Field(default=0.0, env="LLM_INPUT_PRICE_PER_1M")
-    llm_output_price_per_1m: float = Field(default=0.0, env="LLM_OUTPUT_PRICE_PER_1M")
+    # 按模型配置单价（每 1M tokens）：
+    # {"qwen3.5-plus": {"input": 0.8, "output": 2.0}, "qwen3.5-flash": {"input": 0.3, "output": 0.6}}
+    llm_model_prices_json: str = Field(default="{}", env="LLM_MODEL_PRICES_JSON")
 
     # DashScope ASR
     dashscope_base_url: str = Field(

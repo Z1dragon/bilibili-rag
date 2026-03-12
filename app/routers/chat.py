@@ -21,6 +21,25 @@ from app.routers.knowledge import get_rag_service
 router = APIRouter(prefix="/chat", tags=["对话"])
 
 
+def _resolve_model_prices(model_name: str) -> tuple[float, float, str]:
+    """按模型解析单价，未配置时按 0 计费并标记缺失。"""
+    try:
+        price_map = json.loads(settings.llm_model_prices_json or "{}")
+    except Exception:
+        price_map = {}
+
+    model_cfg = price_map.get(model_name)
+    if isinstance(model_cfg, dict):
+        input_price = model_cfg.get("input_per_1m", model_cfg.get("input", 0))
+        output_price = model_cfg.get("output_per_1m", model_cfg.get("output", 0))
+        try:
+            return float(input_price), float(output_price), "model_specific"
+        except Exception:
+            pass
+
+    return 0.0, 0.0, "model_price_missing"
+
+
 def _log_llm_usage(scene: str, response) -> None:
     """记录 LLM 用量与预估费用。"""
     usage = getattr(response, "usage", None)
@@ -31,19 +50,25 @@ def _log_llm_usage(scene: str, response) -> None:
     prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
     completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
     total_tokens = int(getattr(usage, "total_tokens", prompt_tokens + completion_tokens) or 0)
+    model_name = getattr(response, "model", None) or settings.llm_model
+    input_price, output_price, price_source = _resolve_model_prices(model_name)
 
-    input_cost = (prompt_tokens / 1_000_000) * settings.llm_input_price_per_1m
-    output_cost = (completion_tokens / 1_000_000) * settings.llm_output_price_per_1m
+    input_cost = (prompt_tokens / 1_000_000) * input_price
+    output_cost = (completion_tokens / 1_000_000) * output_price
     total_cost = input_cost + output_cost
 
     logger.info(
         "LLM用量[{}] model={} prompt_tokens={} completion_tokens={} total_tokens={} "
+        "price_source={} price_input_per_1m={:.6f} price_output_per_1m={:.6f} "
         "cost_input={:.6f} cost_output={:.6f} cost_total={:.6f}",
         scene,
-        settings.llm_model,
+        model_name,
         prompt_tokens,
         completion_tokens,
         total_tokens,
+        price_source,
+        input_price,
+        output_price,
         input_cost,
         output_cost,
         total_cost,
